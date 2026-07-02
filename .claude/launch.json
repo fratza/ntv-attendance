@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "/Users/fratzantigua/.bun/bin/bun",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "docker",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "logs", "-f"],
+      "port": 3100
+    }
+  ]
+}

@@ -19,14 +19,15 @@ export const Route = createFileRoute("/")({
 });
 
 const DEPARTMENTS = [
-  "Engineering",
+  "Frontend",
+  "Backend",
+  "Staff",
+  "IoT",
+  "RnD",
+  "QA",
   "Design",
-  "Product",
-  "Marketing",
-  "Sales",
-  "Human Resources",
-  "Finance",
-  "Operations",
+  "UI/UX",
+  "Admin/HR",
 ];
 
 function DepartmentPage() {

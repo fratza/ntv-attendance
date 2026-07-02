@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
-import { CalendarIcon, Users, ArrowLeft } from "lucide-react";
+import { CalendarIcon, Users, ArrowLeft, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
+import { DEPARTMENT_LABEL_TO_SHEET } from "@/lib/department-roster";
+import { fetchDepartmentRoster } from "@/functions/fetch-department-roster";
+import { saveAttendance } from "@/functions/save-attendance";
 
 export const Route = createFileRoute("/attendance")({
   validateSearch: z.object({ department: z.string().optional() }),
@@ -33,23 +38,60 @@ const STATUSES = [
   { code: "EL", label: "Emergency Leave" },
 ] as const;
 
-const NAMES = [
-  "Ava Bennett",
-  "Liam Carter",
-  "Sofia Diaz",
-  "Noah Edwards",
-  "Mia Foster",
-  "Ethan Gray",
-  "Olivia Hayes",
-  "James Ito",
-  "Chloe Jensen",
-  "Lucas Kim",
-];
-
 function Index() {
   const { department } = Route.useSearch();
   const [date, setDate] = useState<Date>(new Date());
   const [attendance, setAttendance] = useState<Record<string, string>>({});
+
+  const dateKey = format(date, "M/d/yyyy");
+  const isMappedDepartment = Boolean(department && DEPARTMENT_LABEL_TO_SHEET[department]);
+
+  const queryClient = useQueryClient();
+  const getRoster = useServerFn(fetchDepartmentRoster);
+  const {
+    data: roster,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["department-roster", department],
+    queryFn: () => getRoster({ data: { department: department! } }),
+    enabled: isMappedDepartment,
+  });
+
+  const names = useMemo(() => roster?.staff.map((s) => s.name) ?? [], [roster]);
+  const dateColumn = roster?.dateColumns[dateKey];
+
+  const saveRoster = useServerFn(saveAttendance);
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!roster || !dateColumn) {
+        throw new Error("This date isn't tracked in the sheet for this department yet.");
+      }
+      const entries = roster.staff.map((member) => ({
+        rowNumber: member.rowNumber,
+        column: dateColumn,
+        code: attendance[member.name] ?? "",
+      }));
+      return saveRoster({ data: { entries } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-roster", department] });
+    },
+  });
+
+  useEffect(() => {
+    if (!roster) {
+      setAttendance({});
+      return;
+    }
+    const next: Record<string, string> = {};
+    for (const member of roster.staff) {
+      const code = member.attendance[dateKey];
+      if (code) next[member.name] = code;
+    }
+    setAttendance(next);
+  }, [roster, dateKey]);
 
   const summary = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -125,93 +167,149 @@ function Index() {
 
         <Card className="overflow-hidden p-0">
           <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/40">
-            <h2 className="font-semibold text-foreground">Team roster</h2>
-            <p className="text-sm text-muted-foreground">
-              {marked} of {NAMES.length} marked
-            </p>
+            <div>
+              <h2 className="font-semibold text-foreground">Team roster</h2>
+              {roster?.teamLead && (
+                <p className="text-xs text-muted-foreground">Team Lead: {roster.teamLead}</p>
+              )}
+            </div>
+            {names.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {marked} of {names.length} marked
+              </p>
+            )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/30 text-muted-foreground">
-                  <th className="text-left font-medium px-6 py-3 sticky left-0 bg-muted/30">Name</th>
-                  {STATUSES.map((s) => (
-                    <th key={s.code} className="px-2 py-3 text-center font-medium">
-                      {s.code}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {NAMES.map((name, idx) => {
-                  const selected = attendance[name];
-                  return (
-                    <tr
-                      key={name}
-                      className={cn(
-                        "border-t transition-colors hover:bg-secondary/10",
-                        idx % 2 === 1 && "bg-muted/10",
-                      )}
-                    >
-                      <td className="px-6 py-3 font-medium text-foreground sticky left-0 bg-inherit">
-                        {name}
-                      </td>
-                      {STATUSES.map((s) => {
-                        const active = selected === s.code;
-                        return (
-                          <td key={s.code} className="px-2 py-3 text-center">
-                            <label className="inline-flex cursor-pointer">
-                              <input
-                                type="checkbox"
-                                className="sr-only"
-                                checked={active}
-                                onChange={() =>
-                                  setAttendance((prev) => {
-                                    const next = { ...prev };
-                                    if (active) delete next[name];
-                                    else next[name] = s.code;
-                                    return next;
-                                  })
-                                }
-                              />
-                              <span
-                                className={cn(
-                                  "h-6 w-6 rounded-md border-2 flex items-center justify-center text-[10px] font-bold transition-all",
-                                  active
-                                    ? "bg-secondary border-secondary text-primary shadow-sm scale-105"
-                                    : "border-border text-transparent hover:border-secondary/60",
-                                )}
-                              >
-                                ✓
-                              </span>
-                            </label>
-                          </td>
-                        );
-                      })}
+          {!department ? (
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+              No department selected.{" "}
+              <Link to="/" className="text-secondary underline underline-offset-2">
+                Choose a department
+              </Link>{" "}
+              to load its roster.
+            </div>
+          ) : !isMappedDepartment ? (
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+              No roster data is mapped for "{department}" yet.
+            </div>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center gap-2 px-6 py-10 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading roster…
+            </div>
+          ) : isError ? (
+            <div className="px-6 py-10 text-center text-sm text-destructive">
+              Couldn't load the roster: {error instanceof Error ? error.message : "Unknown error"}
+            </div>
+          ) : names.length === 0 ? (
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+              No staff found for "{department}" in the sheet.
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/30 text-muted-foreground">
+                      <th className="text-left font-medium px-6 py-3 sticky left-0 bg-muted/30">
+                        Name
+                      </th>
+                      {STATUSES.map((s) => (
+                        <th key={s.code} className="px-2 py-3 text-center font-medium">
+                          {s.code}
+                        </th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {roster?.staff.map((member, idx) => {
+                      const name = member.name;
+                      const selected = attendance[name];
+                      return (
+                        <tr
+                          key={name}
+                          className={cn(
+                            "border-t transition-colors hover:bg-secondary/10",
+                            idx % 2 === 1 && "bg-muted/10",
+                          )}
+                        >
+                          <td className="px-6 py-3 font-medium text-foreground sticky left-0 bg-inherit">
+                            {name}
+                            {member.role === "TL" && (
+                              <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                TL
+                              </span>
+                            )}
+                          </td>
+                          {STATUSES.map((s) => {
+                            const active = selected === s.code;
+                            return (
+                              <td key={s.code} className="px-2 py-3 text-center">
+                                <label className="inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={active}
+                                    onChange={() =>
+                                      setAttendance((prev) => {
+                                        const next = { ...prev };
+                                        if (active) delete next[name];
+                                        else next[name] = s.code;
+                                        return next;
+                                      })
+                                    }
+                                  />
+                                  <span
+                                    className={cn(
+                                      "h-6 w-6 rounded-md border-2 flex items-center justify-center text-[10px] font-bold transition-all",
+                                      active
+                                        ? "bg-secondary border-secondary text-primary shadow-sm scale-105"
+                                        : "border-border text-transparent hover:border-secondary/60",
+                                    )}
+                                  >
+                                    ✓
+                                  </span>
+                                </label>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t bg-muted/20">
-            <Button variant="outline" onClick={() => setAttendance({})}>
-              Clear
-            </Button>
-            <Button
-              className="bg-secondary text-primary hover:bg-secondary/90"
-              onClick={() =>
-                alert(
-                  `Attendance for ${format(date, "PPP")}:\n\n` +
-                    NAMES.map((n) => `${n}: ${attendance[n] ?? "—"}`).join("\n"),
-                )
-              }
-            >
-              Save attendance
-            </Button>
-          </div>
+              <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-4 border-t bg-muted/20">
+                {!dateColumn ? (
+                  <p className="mr-auto text-xs text-muted-foreground">
+                    This date isn't tracked in the sheet for this department yet — saving is
+                    disabled.
+                  </p>
+                ) : saveMutation.isError ? (
+                  <p className="mr-auto text-xs text-destructive">
+                    Couldn't save:{" "}
+                    {saveMutation.error instanceof Error
+                      ? saveMutation.error.message
+                      : "Unknown error"}
+                  </p>
+                ) : saveMutation.isSuccess ? (
+                  <p className="mr-auto text-xs text-secondary">Saved to the sheet.</p>
+                ) : null}
+                <Button variant="outline" onClick={() => setAttendance({})}>
+                  Clear
+                </Button>
+                <Button
+                  className="bg-secondary text-primary hover:bg-secondary/90"
+                  disabled={!dateColumn || saveMutation.isPending}
+                  onClick={() => saveMutation.mutate()}
+                >
+                  {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  Save attendance
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
       </main>
     </div>

@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3100:8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - CI=true
+      - N8N_FETCH_DEPARTMENT_URL=https://n8n.n-compass.online/webhook/fetch-department
+      - N8N_UPDATE_ATTENDANCE_URL=https://n8n.n-compass.online/webhook/update-attendance
