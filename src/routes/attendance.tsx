@@ -47,6 +47,7 @@ const NAMES = [
 ];
 
 function Index() {
+  const { department } = Route.useSearch();
   const [date, setDate] = useState<Date>(new Date());
   const [attendance, setAttendance] = useState<Record<string, string>>({});
 
