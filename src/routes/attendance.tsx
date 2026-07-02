@@ -67,12 +67,21 @@ function Index() {
       <header className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-6xl px-6 py-8 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="h-10 w-10 rounded-lg bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition"
+              aria-label="Change department"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
             <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
               <Users className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
-              <p className="text-sm text-primary-foreground/70">Mark today's team status</p>
+              <p className="text-sm text-primary-foreground/70">
+                {department ? `${department} · ` : ""}Mark today's team status
+              </p>
             </div>
           </div>
 
