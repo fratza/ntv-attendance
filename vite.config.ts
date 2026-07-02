@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Default nitro target is Cloudflare Workers; override to a plain Node
+  // server so `bun run build` produces a `.output/server/index.mjs` that
+  // runs on any generic Node host (e.g. Render), not just Cloudflare.
+  nitro: {
+    preset: "node-server",
+  },
 });
