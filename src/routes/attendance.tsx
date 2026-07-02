@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
-import { CalendarIcon, Users, ArrowLeft, Loader2 } from "lucide-react";
+import { CalendarIcon, Users, ArrowLeft, Loader2, ExternalLink } from "lucide-react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -173,11 +173,22 @@ function Index() {
                 <p className="text-xs text-muted-foreground">Team Lead: {roster.teamLead}</p>
               )}
             </div>
-            {names.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {marked} of {names.length} marked
-              </p>
-            )}
+            <div className="flex items-center gap-4">
+              {names.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {marked} of {names.length} marked
+                </p>
+              )}
+              <a
+                href="https://docs.google.com/spreadsheets/d/10kUmMmPJc551vuQA1YRTWVVBr7FZA44jyODT_-oB2Hc/edit?gid=0#gid=0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-secondary underline underline-offset-2 hover:text-secondary/80"
+              >
+                Open in Google Sheets
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
           </div>
 
           {!department ? (
