@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/attendance")({
   head: () => ({
     meta: [
       { title: "Attendance Tracker" },
