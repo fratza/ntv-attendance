@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Users } from "lucide-react";
+import { CalendarIcon, Users, ArrowLeft } from "lucide-react";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -9,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Card } from "@/components/ui/card";
 
 export const Route = createFileRoute("/attendance")({
+  validateSearch: z.object({ department: z.string().optional() }),
   head: () => ({
     meta: [
       { title: "Attendance Tracker" },
