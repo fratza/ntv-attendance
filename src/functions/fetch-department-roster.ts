@@ -10,6 +10,10 @@ const N8N_FETCH_DEPARTMENT_URL =
   process.env.N8N_FETCH_DEPARTMENT_URL ??
   "https://n8n.n-compass.online/webhook/fetch-department";
 
+type FetchDepartmentResponse =
+  | Record<string, unknown>[] // old shape: bare array of sheet rows
+  | { rows: Record<string, unknown>[]; notesGrid?: string[][] };
+
 export const fetchDepartmentRoster = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ department: z.string() }).parse(data))
   .handler(async ({ data }): Promise<DepartmentRoster | null> => {
@@ -21,7 +25,10 @@ export const fetchDepartmentRoster = createServerFn({ method: "GET" })
       throw new Error(`n8n webhook responded with ${response.status}`);
     }
 
-    const rows = (await response.json()) as Record<string, unknown>[];
-    const blocks = parseSheetRows(rows);
+    const payload = (await response.json()) as FetchDepartmentResponse;
+    const rows = Array.isArray(payload) ? payload : payload.rows;
+    const notesGrid = Array.isArray(payload) ? undefined : payload.notesGrid;
+
+    const blocks = parseSheetRows(rows, notesGrid);
     return blocks.find((block) => block.sheetLabel === sheetLabel) ?? null;
   });

@@ -1,28 +1,31 @@
 // Converts our synthetic "col_N" keys (assigned by n8n's Google Sheets "Get
 // Row(s)" node because the sheet's real header cells are blank/merged) into
-// an explicit A1-notation cell reference, so writes target an exact cell
-// instead of relying on n8n's write-time auto-mapping (which isn't
-// guaranteed to line up with the read-time column naming).
+// a Sheets API GridRange, so writes target an exact cell instead of relying
+// on n8n's write-time auto-mapping (which isn't guaranteed to line up with
+// the read-time column naming).
+//
+// GridRange (used by the `batchUpdate` "updateCells" request) needs the
+// numeric sheet tab ID (gid) plus 0-based row/column indices — unlike the
+// Values API's `range` string, this lets a single request set both the
+// cell's value AND its note together.
 
-const SHEET_TAB_NAME = process.env.SHEET_TAB_NAME ?? "July2026";
+const SHEET_GID = Number(process.env.SHEET_GID ?? 0);
 
-function columnIndexToLetter(index: number): string {
-  let n = index;
-  let letters = "";
-  while (n > 0) {
-    const remainder = (n - 1) % 26;
-    letters = String.fromCharCode(65 + remainder) + letters;
-    n = Math.floor((n - 1) / 26);
-  }
-  return letters;
-}
-
-export function buildCellRange(column: string, rowNumber: number): string {
+export function parseColumnIndex(column: string): number {
   const match = /^col_(\d+)$/.exec(column);
   if (!match) {
     throw new Error(`Unexpected column key "${column}"`);
   }
-  const columnIndex = Number(match[1]);
-  const columnLetter = columnIndexToLetter(columnIndex);
-  return `${SHEET_TAB_NAME}!${columnLetter}${rowNumber}`;
+  return Number(match[1]); // 1-based spreadsheet column
+}
+
+export function buildGridRange(column: string, rowNumber: number) {
+  const columnIndex = parseColumnIndex(column);
+  return {
+    sheetId: SHEET_GID,
+    startRowIndex: rowNumber - 1,
+    endRowIndex: rowNumber,
+    startColumnIndex: columnIndex - 1,
+    endColumnIndex: columnIndex,
+  };
 }

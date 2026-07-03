@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { buildCellRange } from "@/lib/sheet-range";
+import { buildGridRange } from "@/lib/sheet-range";
 
 const N8N_UPDATE_ATTENDANCE_URL =
   process.env.N8N_UPDATE_ATTENDANCE_URL ??
@@ -10,6 +10,7 @@ const entrySchema = z.object({
   rowNumber: z.number(),
   column: z.string(),
   code: z.string(),
+  reason: z.string().optional(),
 });
 
 const inputSchema = z.object({
@@ -19,15 +20,30 @@ const inputSchema = z.object({
 export const saveAttendance = createServerFn({ method: "POST" })
   .validator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
-    const updates = data.entries.map((entry) => ({
-      range: buildCellRange(entry.column, entry.rowNumber),
-      code: entry.code,
+    // A single Sheets API batchUpdate request per cell: sets the status
+    // code as the cell's value and the reason as the cell's note in one
+    // shot (the plain Values API used for reads can't touch notes at all).
+    const requests = data.entries.map((entry) => ({
+      updateCells: {
+        range: buildGridRange(entry.column, entry.rowNumber),
+        rows: [
+          {
+            values: [
+              {
+                userEnteredValue: { stringValue: entry.code },
+                note: entry.reason ?? "",
+              },
+            ],
+          },
+        ],
+        fields: "userEnteredValue,note",
+      },
     }));
 
     const response = await fetch(N8N_UPDATE_ATTENDANCE_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ updates }),
+      body: JSON.stringify({ requests }),
     });
 
     if (!response.ok) {

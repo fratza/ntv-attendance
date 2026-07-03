@@ -7,7 +7,13 @@
 //
 // `rowNumber` and `column` are kept on each entry so a save can write back
 // to the exact sheet cell via a `row_number`-matched Google Sheets update
-// (see src/server/save-attendance.ts).
+// (see src/functions/save-attendance.ts).
+//
+// `notesGrid` comes from a separate Sheets API call (the Values API used
+// for `rows` can't see cell notes at all) — a 2D array indexed
+// [rowIndex][columnIndex], both 0-based, matching the raw sheet grid.
+
+import { parseColumnIndex } from "@/lib/sheet-range";
 
 const FIRST_COL_KEY = "Employee Attendance Monitoring Sheet\n\nJULY 2026";
 
@@ -16,6 +22,7 @@ export type StaffMember = {
   role: "TL" | "Staff";
   rowNumber: number;
   attendance: Record<string, string>; // date string ("7/1/2026") -> status code
+  notes: Record<string, string>; // date string -> existing sheet note (reason)
 };
 
 export type DepartmentRoster = {
@@ -37,7 +44,21 @@ export const DEPARTMENT_LABEL_TO_SHEET: Record<string, string> = {
   "Admin/HR": "Admin/HR",
 };
 
-export function parseSheetRows(rows: Record<string, unknown>[]): DepartmentRoster[] {
+function lookupNote(
+  notesGrid: string[][] | undefined,
+  rowNumber: number,
+  column: string,
+): string {
+  if (!notesGrid) return "";
+  const rowIndex = rowNumber - 1;
+  const columnIndex = parseColumnIndex(column) - 1;
+  return notesGrid[rowIndex]?.[columnIndex] ?? "";
+}
+
+export function parseSheetRows(
+  rows: Record<string, unknown>[],
+  notesGrid?: string[][],
+): DepartmentRoster[] {
   const blocks: DepartmentRoster[] = [];
   let current: DepartmentRoster | null = null;
   let dateColKeys: string[] = [];
@@ -86,13 +107,23 @@ export function parseSheetRows(rows: Record<string, unknown>[]): DepartmentRoste
       const rowNumber = Number(row.row_number);
       if (!name || !Number.isFinite(rowNumber)) continue;
       const attendance: Record<string, string> = {};
+      const notes: Record<string, string> = {};
       dateColKeys.forEach((key, i) => {
+        const date = current!.dates[i];
         const code = row[key];
         if (typeof code === "string" && code.trim() && code.trim().toLowerCase() !== "weekend") {
-          attendance[current!.dates[i]] = code.trim();
+          attendance[date] = code.trim();
         }
+        const note = lookupNote(notesGrid, rowNumber, key);
+        if (note) notes[date] = note;
       });
-      current.staff.push({ name, role: first === "TL" ? "TL" : "Staff", rowNumber, attendance });
+      current.staff.push({
+        name,
+        role: first === "TL" ? "TL" : "Staff",
+        rowNumber,
+        attendance,
+        notes,
+      });
       continue;
     }
   }

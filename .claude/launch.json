@@ -12,6 +12,12 @@
       "runtimeExecutable": "docker",
       "runtimeArgs": ["compose", "logs", "-f"],
       "port": 3100
+    },
+    {
+      "name": "dev-direct",
+      "runtimeExecutable": "/Users/fratzantigua/.bun/bin/bun",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "dev", "--host", "--port", "3300"],
+      "port": 3300
     }
   ]
 }

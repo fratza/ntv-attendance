@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { DEPARTMENT_LABEL_TO_SHEET } from "@/lib/department-roster";
 import { fetchDepartmentRoster } from "@/functions/fetch-department-roster";
 import { saveAttendance } from "@/functions/save-attendance";
@@ -38,10 +39,13 @@ const STATUSES = [
   { code: "EL", label: "Emergency Leave" },
 ] as const;
 
+const CODES_REQUIRING_REASON = new Set(["L", "A", "WFH", "AL", "HL", "SL", "EL"]);
+
 function Index() {
   const { department } = Route.useSearch();
   const [date, setDate] = useState<Date>(new Date());
   const [attendance, setAttendance] = useState<Record<string, string>>({});
+  const [reasons, setReasons] = useState<Record<string, string>>({});
 
   const dateKey = format(date, "M/d/yyyy");
   const isMappedDepartment = Boolean(department && DEPARTMENT_LABEL_TO_SHEET[department]);
@@ -72,6 +76,7 @@ function Index() {
         rowNumber: member.rowNumber,
         column: dateColumn,
         code: attendance[member.name] ?? "",
+        reason: reasons[member.name] ?? "",
       }));
       return saveRoster({ data: { entries } });
     },
@@ -83,14 +88,19 @@ function Index() {
   useEffect(() => {
     if (!roster) {
       setAttendance({});
+      setReasons({});
       return;
     }
-    const next: Record<string, string> = {};
+    const nextAttendance: Record<string, string> = {};
+    const nextReasons: Record<string, string> = {};
     for (const member of roster.staff) {
       const code = member.attendance[dateKey];
-      if (code) next[member.name] = code;
+      if (code) nextAttendance[member.name] = code;
+      const note = member.notes[dateKey];
+      if (note) nextReasons[member.name] = note;
     }
-    setAttendance(next);
+    setAttendance(nextAttendance);
+    setReasons(nextReasons);
   }, [roster, dateKey]);
 
   const summary = useMemo(() => {
@@ -103,6 +113,7 @@ function Index() {
   }, [attendance]);
 
   const marked = Object.keys(attendance).length;
+  const showReasonColumn = Object.values(attendance).some((code) => CODES_REQUIRING_REASON.has(code));
 
   return (
     <div className="min-h-screen bg-background">
@@ -230,6 +241,9 @@ function Index() {
                           {s.code}
                         </th>
                       ))}
+                      {showReasonColumn && (
+                        <th className="text-left font-medium px-4 py-3">Reason</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -264,8 +278,17 @@ function Index() {
                                     onChange={() =>
                                       setAttendance((prev) => {
                                         const next = { ...prev };
-                                        if (active) delete next[name];
-                                        else next[name] = s.code;
+                                        const nextCode = active ? undefined : s.code;
+                                        if (nextCode) next[name] = nextCode;
+                                        else delete next[name];
+                                        if (!nextCode || !CODES_REQUIRING_REASON.has(nextCode)) {
+                                          setReasons((prevReasons) => {
+                                            if (!(name in prevReasons)) return prevReasons;
+                                            const nextReasons = { ...prevReasons };
+                                            delete nextReasons[name];
+                                            return nextReasons;
+                                          });
+                                        }
                                         return next;
                                       })
                                     }
@@ -284,6 +307,23 @@ function Index() {
                               </td>
                             );
                           })}
+                          {showReasonColumn && (
+                            <td className="px-4 py-3">
+                              <Input
+                                value={reasons[name] ?? ""}
+                                onChange={(e) =>
+                                  setReasons((prev) => ({ ...prev, [name]: e.target.value }))
+                                }
+                                disabled={!selected || !CODES_REQUIRING_REASON.has(selected)}
+                                placeholder={
+                                  selected && CODES_REQUIRING_REASON.has(selected)
+                                    ? "Reason (saved as a sheet note)"
+                                    : "—"
+                                }
+                                className="h-8 min-w-[200px] text-xs"
+                              />
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
