@@ -21,6 +21,7 @@ export const Route = createFileRoute("/")({
 const DEPARTMENTS = [
   "Frontend",
   "Backend",
+  "WebDev",
   "Staff",
   "IoT",
   "RnD",

@@ -36,6 +36,8 @@ export type DepartmentRoster = {
 export const DEPARTMENT_LABEL_TO_SHEET: Record<string, string> = {
   Frontend: "FE",
   Backend: "BE",
+  WebDev: "WD",
+  WD: "WD",
   IoT: "IOT",
   RnD: "R&D",
   QA: "QA",
