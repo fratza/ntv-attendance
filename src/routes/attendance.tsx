@@ -30,13 +30,10 @@ export const Route = createFileRoute("/attendance")({
 
 const STATUSES = [
   { code: "P", label: "Present" },
-  { code: "2", label: "Regular Holiday" },
-  { code: "SR", label: "Special Holiday" },
-  { code: "RD", label: "Rest Day" },
   { code: "L", label: "Late" },
   { code: "A", label: "Absent" },
   { code: "WFH", label: "Work From Home" },
-  { code: "AL", label: "Annual Leave" },
+  { code: "AL", label: "Approved Leave" },
   { code: "HL", label: "Half-day Leave" },
   { code: "SL", label: "Sick Leave" },
   { code: "EL", label: "Emergency Leave" },
@@ -119,7 +116,6 @@ function Index() {
   const showReasonColumn = Object.values(attendance).some((code) =>
     CODES_REQUIRING_REASON.has(code),
   );
-  const isRegularHoliday = Object.values(attendance).some((code) => code === "2");
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,12 +144,7 @@ function Index() {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={cn(
-                  "w-[240px] justify-start text-left font-normal border-primary-foreground/20 text-primary-foreground hover:text-primary-foreground",
-                  isRegularHoliday
-                    ? "border-amber-400 bg-amber-400 text-primary hover:bg-amber-300"
-                    : "bg-transparent hover:bg-primary-foreground/10",
-                )}
+                className="w-[240px] justify-start border-primary-foreground/20 bg-transparent text-left font-normal text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
               >
                 <CalendarIcon />
                 {format(date, "EEEE, PPP")}
@@ -184,17 +175,6 @@ function Index() {
             </Card>
           ))}
         </div>
-
-        <Card className="border-secondary/30 bg-secondary/5 px-4 py-3">
-          <p className="text-sm font-medium text-foreground">Payroll holiday format</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Use <span className="font-semibold text-foreground">2</span> for a regular holiday,
-            <span className="font-semibold text-foreground"> SR</span> for a special holiday, and
-            <span className="font-semibold text-foreground"> RD</span> for a rest day. These codes
-            match the daily timekeeper report and remain in the saved attendance cell for payroll
-            creation.
-          </p>
-        </Card>
 
         <Card className="overflow-hidden p-0">
           <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/40">
