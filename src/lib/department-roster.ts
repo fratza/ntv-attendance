@@ -38,6 +38,7 @@ export const DEPARTMENT_LABEL_TO_SHEET: Record<string, string> = {
   Backend: "BE",
   WebDev: "WD",
   WD: "WD",
+  Staff: "Staff",
   IoT: "IOT",
   RnD: "R&D",
   QA: "QA",
@@ -80,14 +81,28 @@ export function parseSheetRows(
       dateColKeys = [];
       continue;
     }
-    if (!current) continue;
-
     if (first === "Team Lead") {
+      if (!current) continue;
       current.teamLead = String(row.col_2 ?? "").trim() || null;
       continue;
     }
 
     if (first === "#") {
+      // The sheet's general Staff roster is the leading table and has no
+      // preceding "Dept. Name" row. Treat that first "# / Staff" header as
+      // its own block so the Staff option in the department picker can load it.
+      if (!current && String(row.col_2 ?? "").trim() === "Staff") {
+        current = {
+          sheetLabel: "Staff",
+          teamLead: null,
+          dates: [],
+          dateColumns: {},
+          staff: [],
+        };
+        blocks.push(current);
+      }
+      if (!current) continue;
+
       dateColKeys = [];
       current.dates = [];
       current.dateColumns = {};
@@ -103,6 +118,8 @@ export function parseSheetRows(
       }
       continue;
     }
+
+    if (!current) continue;
 
     if (first === "TL" || typeof first === "number") {
       const name = String(row.col_2 ?? "").trim();
